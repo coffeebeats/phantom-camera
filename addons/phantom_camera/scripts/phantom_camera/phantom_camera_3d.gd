@@ -101,13 +101,14 @@ enum InactiveUpdateMode {
 }
 
 enum FollowLockAxis {
-	NONE 	= 0,
+	NONE	= 0,
 	X 		= 1,
 	Y 		= 2,
 	Z 		= 3,
 	XY		= 4,
 	XZ		= 5,
-	YZ 		= 6,
+	YZ		= 6,
+	XYZ		= 7,
 }
 
 #endregion
@@ -314,8 +315,8 @@ enum FollowLockAxis {
 ## Prevents the [param PhantomCamera2D] from moving in a designated axis.
 ## This can be enabled or disabled at runtime or from the editor directly.
 @export var follow_axis_lock: FollowLockAxis = FollowLockAxis.NONE:
-	set = set_lock_axis,
-	get = get_lock_axis
+	set = set_follow_axis_lock,
+	get = get_follow_axis_lock
 var _follow_axis_is_locked: bool = false
 var _follow_axis_lock_value: Vector3 = Vector3.ZERO
 
@@ -797,6 +798,10 @@ func process_logic(delta: float) -> void:
 				_transform_output.origin.x = _follow_axis_lock_value.x
 				_transform_output.origin.z = _follow_axis_lock_value.z
 			FollowLockAxis.YZ:
+				_transform_output.origin.y = _follow_axis_lock_value.y
+				_transform_output.origin.z = _follow_axis_lock_value.z
+			FollowLockAxis.XYZ:
+				_transform_output.origin.x = _follow_axis_lock_value.x
 				_transform_output.origin.y = _follow_axis_lock_value.y
 				_transform_output.origin.z = _follow_axis_lock_value.z
 
@@ -1663,14 +1668,17 @@ func set_look_at_target(value: Node3D) -> void:
 	if look_at_mode == LookAtMode.NONE: return
 	if look_at_target == value: return
 	look_at_target = value
-	if is_instance_valid(look_at_target):
-		_should_look_at = true
-		_check_physics_body(value)
-		if not look_at_target.tree_exiting.is_connected(_look_at_target_tree_exiting):
-			look_at_target.tree_exiting.connect(_look_at_target_tree_exiting.bind(look_at_target))
-	else:
-		if not look_at_mode == LookAtMode.GROUP:
+	if not look_at_mode == LookAtMode.GROUP:
+		if is_instance_valid(look_at_target):
+			_should_look_at = true
+			_check_physics_body(value)
+			if not look_at_target.tree_exiting.is_connected(_look_at_target_tree_exiting):
+				look_at_target.tree_exiting.connect(_look_at_target_tree_exiting.bind(look_at_target))
+		else:
 			_should_look_at = false
+	elif look_at_targets.size() == 0:
+		_should_look_at = false
+
 	look_at_target_changed.emit()
 	notify_property_list_changed()
 
@@ -1759,7 +1767,7 @@ func get_look_at_damping_value() -> float:
 	return look_at_damping_value
 
 
-func set_lock_axis(value: FollowLockAxis) -> void:
+func set_follow_axis_lock(value: FollowLockAxis) -> void:
 	follow_axis_lock = value
 
 	# Wait for the node to be ready before setting lock
@@ -1784,10 +1792,14 @@ func set_lock_axis(value: FollowLockAxis) -> void:
 			FollowLockAxis.YZ:
 				_follow_axis_lock_value.y = _transform_output.origin.y
 				_follow_axis_lock_value.z = _transform_output.origin.z
+			FollowLockAxis.XYZ:
+				_follow_axis_lock_value.x = _transform_output.origin.x
+				_follow_axis_lock_value.y = _transform_output.origin.y
+				_follow_axis_lock_value.z = _transform_output.origin.z
 	else:
 		_follow_axis_is_locked = false
 
-func get_lock_axis() -> FollowLockAxis:
+func get_follow_axis_lock() -> FollowLockAxis:
 	return follow_axis_lock
 
 
