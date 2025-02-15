@@ -26,3 +26,5 @@ jobs:
           subfolder: phantom_camera
           target-branch: "godot-v4.3"
           godot-editor-version: v4.3-stable
+          file-excludes: |
+            examples
