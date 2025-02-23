@@ -99,14 +99,15 @@ enum FollowLockAxis {
 ## running a build export of the game.
 @export var priority_override: bool = false:
 	set(value):
-		if Engine.is_editor_hint() and _has_valid_pcam_owner():
-			if value == true:
-				priority_override = value
-				get_pcam_host_owner().pcam_priority_override(self)
+		priority_override = value
+		if Engine.is_editor_hint():
+			if value:
+				if not Engine.has_singleton(_constants.PCAM_MANAGER_NODE_NAME): return
+				print("asdasd")
+				Engine.get_singleton(_constants.PCAM_MANAGER_NODE_NAME).pcam_priority_override.emit(self, true)
 			else:
-				priority_override = value
-				get_pcam_host_owner().pcam_priority_updated(self)
-				get_pcam_host_owner().pcam_priority_override_disabled()
+				if not Engine.has_singleton(_constants.PCAM_MANAGER_NODE_NAME): return
+				Engine.get_singleton(_constants.PCAM_MANAGER_NODE_NAME).pcam_priority_override.emit(self, false)
 	get:
 		return priority_override
 
@@ -479,7 +480,7 @@ var viewport_position: Vector2
 
 #endregion
 
-#region Property Validator
+#region Private Functions
 
 func _validate_property(property: Dictionary) -> void:
 	################
@@ -565,9 +566,11 @@ func _validate_property(property: Dictionary) -> void:
 	if property.name == "frame_preview" and _is_active:
 		property.usage |= PROPERTY_USAGE_READ_ONLY
 
-#region Private Functions
 
 func _enter_tree() -> void:
+	_phantom_camera_manager = Engine.get_singleton(_constants.PCAM_MANAGER_NODE_NAME)
+	_phantom_camera_manager.pcam_added(self)
+
 	_should_follow_checker()
 	if follow_mode == FollowMode.GROUP:
 		_follow_targets_size_check()
@@ -577,23 +580,17 @@ func _enter_tree() -> void:
 	if not visibility_changed.is_connected(_check_visibility):
 		visibility_changed.connect(_check_visibility)
 
-	_phantom_camera_manager = get_tree().root.get_node(_constants.PCAM_MANAGER_NODE_NAME)
-	_phantom_camera_manager.pcam_added(self)
 	update_limit_all_sides()
 
-#	if not _phantom_camera_manager.get_phantom_camera_hosts().is_empty():
-#		set_pcam_host_owner(_phantom_camera_manager.get_phantom_camera_hosts()[0])
+	_tween_skip = false if tween_on_load else true
 
 
 func _exit_tree() -> void:
-	if is_instance_valid(_phantom_camera_manager):
-		_phantom_camera_manager.pcam_removed(self)
-
-	if _has_valid_pcam_owner():
-		get_pcam_host_owner().pcam_removed_from_scene(self)
-
 	if not follow_mode == FollowMode.GROUP:
 		follow_targets = []
+
+	if not is_instance_valid(_phantom_camera_manager): return
+	_phantom_camera_manager.pcam_removed(self)
 
 
 func _ready() -> void:
@@ -947,17 +944,20 @@ func _set_layer(current_layers: int, layer_number: int, value: bool) -> int:
 
 func _check_physics_body(target: Node2D) -> void:
 	if target is PhysicsBody2D:
+		var show_jitter_tips := ProjectSettings.get_setting("phantom_camera/tips/show_jitter_tips")
+		var physics_interpolation_enabled := ProjectSettings.get_setting("physics/common/physics_interpolation")
+
 		## NOTE - Feature Toggle
 		if Engine.get_version_info().major == 4 and \
 		Engine.get_version_info().minor < 3:
-			if ProjectSettings.get_setting("phantom_camera/tips/show_jitter_tips"):
+			if show_jitter_tips == null: # Default value is null when referencing custom Project Setting
 				print_rich("Following a [b]PhysicsBody2D[/b] node will likely result in jitter - on lower physics ticks in particular.")
 				print_rich("If possible, will recommend upgrading to Godot 4.3, as it has built-in support for 2D Physics Interpolation, which will mitigate this issue.")
 				print_rich("Otherwise, try following the guide on the [url=https://phantom-camera.dev/support/faq#i-m-seeing-jitter-what-can-i-do]documentation site[/url] for better results.")
 				print_rich("This tip can be disabled from within [code]Project Settings / Phantom Camera / Tips / Show Jitter Tips[/code]")
 			return
 			## NOTE - Only supported in Godot 4.3 or above
-		elif not ProjectSettings.get_setting("physics/common/physics_interpolation") and ProjectSettings.get_setting("phantom_camera/tips/show_jitter_tips"):
+		elif not physics_interpolation_enabled and show_jitter_tips == null: # Default value is null when referencing custom Project Setting
 			printerr("Physics Interpolation is disabled in the Project Settings, recommend enabling it to smooth out physics-based camera movement")
 			print_rich("This tip can be disabled from within [code]Project Settings / Phantom Camera / Tips / Show Jitter Tips[/code]")
 		_follow_target_physics_based = true
@@ -1092,8 +1092,8 @@ func emit_noise(value: Transform2D) -> void:
 ## plugin internals. Proper support will be added in issue #26.
 func set_pcam_host_owner(value: PhantomCameraHost) -> void:
 	pcam_host_owner = value
-	if is_instance_valid(pcam_host_owner):
-		pcam_host_owner.pcam_added_to_scene(self)
+#	if is_instance_valid(pcam_host_owner):
+#		pcam_host_owner.pcam_added_to_scene(self)
 	#if value.size() == 1:
 #	else:
 #		for camera_host in camera_host_group:
@@ -1121,8 +1121,8 @@ func get_zoom() -> Vector2:
 ## Assigns new Priority value.
 func set_priority(value: int) -> void:
 	priority = abs(value)
-	if _has_valid_pcam_owner():
-		get_pcam_host_owner().pcam_priority_updated(self)
+	if not Engine.has_singleton(_constants.PCAM_MANAGER_NODE_NAME): return
+	Engine.get_singleton(_constants.PCAM_MANAGER_NODE_NAME).pcam_priority_changed.emit(self)
 
 ## Gets current Priority value.
 func get_priority() -> int:
