@@ -560,12 +560,6 @@ func _validate_property(property: Dictionary) -> void:
 	if property.name == "limit_margin" and not _limit_node:
 		property.usage = PROPERTY_USAGE_NO_EDITOR
 
-	################
-	## Frame Preview
-	################
-	if property.name == "frame_preview" and _is_active:
-		property.usage |= PROPERTY_USAGE_READ_ONLY
-
 
 func _enter_tree() -> void:
 	_phantom_camera_manager = Engine.get_singleton(_constants.PCAM_MANAGER_NODE_NAME)
@@ -677,14 +671,13 @@ func _follow(delta: float) -> void:
 						auto_zoom_margin.w
 					)
 
-					var screen_size: Vector2 = get_viewport_rect().size
-					if rect.size.x > rect.size.y * screen_size.aspect():
-						zoom = clamp(screen_size.x / rect.size.x, auto_zoom_min, auto_zoom_max) * Vector2.ONE
+					if rect.size.x > rect.size.y * _phantom_camera_manager.screen_size.aspect():
+						zoom = clamp(_phantom_camera_manager.screen_size.x / rect.size.x, auto_zoom_min, auto_zoom_max) * Vector2.ONE
 					else:
-						zoom = clamp(screen_size.y / rect.size.y, auto_zoom_min, auto_zoom_max) * Vector2.ONE
-				follow_position = rect.get_center()
+						zoom = clamp(_phantom_camera_manager.screen_size.y / rect.size.y, auto_zoom_min, auto_zoom_max) * Vector2.ONE
+				follow_position = rect.get_center() + follow_offset
 			else:
-				follow_position = follow_targets[_follow_targets_single_target_index].global_position
+				follow_position = follow_targets[_follow_targets_single_target_index].global_position + follow_offset
 
 		FollowMode.PATH:
 			var path_position: Vector2 = follow_path.global_position
@@ -803,9 +796,7 @@ func _draw() -> void:
 
 
 func _camera_frame_rect() -> Rect2:
-	var screen_size_width: int = ProjectSettings.get_setting("display/window/size/viewport_width")
-	var screen_size_height: int = ProjectSettings.get_setting("display/window/size/viewport_height")
-	var screen_size_zoom: Vector2 = Vector2(screen_size_width / get_zoom().x, screen_size_height / get_zoom().y)
+	var screen_size_zoom: Vector2 = Vector2(_phantom_camera_manager.screen_size.x / get_zoom().x, _phantom_camera_manager.screen_size.y / get_zoom().y)
 
 	return Rect2(-screen_size_zoom / 2, screen_size_zoom)
 
@@ -851,8 +842,11 @@ func _get_framed_side_offset() -> Vector2:
 
 
 func _draw_camera_2d_limit() -> void:
-	if _has_valid_pcam_owner():
-		get_pcam_host_owner().camera_2d.set_limit_drawing_enabled(draw_limits)
+	if not is_instance_valid(_phantom_camera_manager): return
+	_phantom_camera_manager.draw_limit_2d.emit(draw_limits)
+
+#	if _has_valid_pcam_owner():
+#		get_pcam_host_owner().camera_2d.set_limit_drawing_enabled(draw_limits)
 
 
 func _check_limit_is_not_default() -> void:
@@ -860,12 +854,6 @@ func _check_limit_is_not_default() -> void:
 		_limit_inactive_pcam = false
 	else:
 		_limit_inactive_pcam = true
-
-
-func _set_camera_2d_limit(side: int, limit: int) -> void:
-	if not _has_valid_pcam_owner(): return
-	if not _is_active: return
-	get_pcam_host_owner().camera_2d.set_limit(side, limit)
 
 
 func _check_visibility() -> void:
@@ -1038,21 +1026,22 @@ func update_limit_all_sides() -> void:
 		_limit_sides.w = roundi(limit_rect.position.y + limit_rect.size.y)
 
 	_check_limit_is_not_default()
-
-	if _is_active and _has_valid_pcam_owner():
-		_set_camera_2d_limit(SIDE_LEFT, _limit_sides.x)
-		_set_camera_2d_limit(SIDE_TOP, _limit_sides.y)
-		_set_camera_2d_limit(SIDE_RIGHT, _limit_sides.z)
-		_set_camera_2d_limit(SIDE_BOTTOM, _limit_sides.w)
+	if not _is_active: return
+	if not is_instance_valid(_phantom_camera_manager): return
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_LEFT, _limit_sides.x)
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_TOP, _limit_sides.y)
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_RIGHT, _limit_sides.z)
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_BOTTOM, _limit_sides.w)
+	_phantom_camera_manager.draw_limit_2d.emit(draw_limits)
 
 
 func reset_limit() -> void:
-	if not _has_valid_pcam_owner(): return
-	if not _is_active: return
-	get_pcam_host_owner().camera_2d.set_limit(SIDE_LEFT, _limit_sides_default.x)
-	get_pcam_host_owner().camera_2d.set_limit(SIDE_TOP, _limit_sides_default.y)
-	get_pcam_host_owner().camera_2d.set_limit(SIDE_RIGHT, _limit_sides_default.z)
-	get_pcam_host_owner().camera_2d.set_limit(SIDE_BOTTOM, _limit_sides_default.w)
+	if not is_instance_valid(_phantom_camera_manager): return
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_LEFT, _limit_sides_default.x)
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_TOP, _limit_sides_default.y)
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_RIGHT, _limit_sides_default.z)
+	_phantom_camera_manager.limit_2d_changed.emit(SIDE_BOTTOM, _limit_sides_default.w)
+	_phantom_camera_manager.draw_limit_2d.emit(draw_limits)
 
 
 ## Assigns the value of the [param has_tweened] property.
@@ -1511,7 +1500,6 @@ func set_limit_target(value: NodePath) -> void:
 		else:
 			printerr("Limit Target is not a TileMap, TileMapLayer or CollisionShape2D node")
 			return
-
 	elif value == NodePath(""):
 		reset_limit()
 		limit_target = ""

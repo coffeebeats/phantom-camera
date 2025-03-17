@@ -31,7 +31,7 @@ signal follow_target_changed
 ## Emitted when [member look_at_target] changes.
 signal look_at_target_changed
 
-## Emitted when dead zones changes. [br]
+## Emitted when dead zones changes.[br]
 ## [b]Note:[/b] Only applicable in [param Framed] [member FollowMode].
 signal dead_zone_changed
 
@@ -186,6 +186,10 @@ enum FollowLockAxis {
 			top_level = true
 
 		notify_property_list_changed()
+
+		## NOTE - Warning that Look At + Follow Mode hasn't been fully tested together yet
+		if look_at_mode != LookAtMode.NONE:
+			print_rich("[color=#EAA15E]Warning: Using both Look At and Follow Mode on the same PCam3D has not been fully tested yet, proceed with caution![/color]")
 	get:
 		return follow_mode
 
@@ -228,6 +232,10 @@ enum FollowLockAxis {
 		else: # If Look At Group
 			_look_at_targets_size_check()
 		notify_property_list_changed()
+
+		## NOTE - Warning that Look At + Follow Mode hasn't been fully tested together yet
+		if follow_mode != FollowMode.NONE:
+			print_rich("[color=#EAA15E]Warning: Using both Look At and Follow Mode on the same PCam3D has not been fully tested yet, proceed with caution![/color]")
 	get:
 		return look_at_mode
 
@@ -348,6 +356,8 @@ var _follow_axis_lock_value: Vector3 = Vector3.ZERO
 ## Note: This distance will only ever be reached when all the targets are in
 ## the exact same [param Vector3] coordinate, which will very unlikely
 ## happen, so adjust the value here accordingly.
+## [br][br]
+## If only one follow target is assigned to [member follow_targets], this value will be used as the `follow_distance`.
 @export var auto_follow_distance_min: float = 1:
 	set = set_auto_follow_distance_min,
 	get = get_auto_follow_distance_min
@@ -832,14 +842,14 @@ func _follow(delta: float) -> void:
 				follow_position = \
 					bounds.get_center() + \
 					follow_offset + \
-					get_transform().basis.z * \
+					global_transform.basis.z * \
 					Vector3(distance, distance, distance)
 			else:
 				follow_position = \
 					follow_targets[_follow_targets_single_target_index].global_position + \
 					follow_offset + \
-					get_transform().basis.z * \
-					Vector3(follow_distance, follow_distance, follow_distance)
+					global_transform.basis.z * \
+					Vector3(auto_follow_distance_min, auto_follow_distance_min, auto_follow_distance_min)
 
 		FollowMode.PATH:
 			var path_position: Vector3 = follow_path.global_position
@@ -1866,6 +1876,9 @@ func get_camera_3d_resource() -> Camera3DResource:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_cull_mask(value: int) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a cull_mask value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.cull_mask = value
 	if _is_active: get_pcam_host_owner().camera_3d.cull_mask = value
 
@@ -1873,12 +1886,16 @@ func set_cull_mask(value: int) -> void:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_cull_mask_value(layer_number: int, value: bool) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a cull_mask value. No Camera3DResource assigned to ", name)
+		return
 	var mask: int = _set_layer(get_cull_mask(), layer_number, value)
 	camera_3d_resource.cull_mask = mask
 	if _is_active: get_pcam_host_owner().camera_3d.cull_mask = mask
 
 ## Gets the [member Camera3D.cull_mask] value assigned to the [Camera3DResource].
-func get_cull_mask() -> int:
+func get_cull_mask() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.cull_mask
 
 
@@ -1904,11 +1921,15 @@ func get_attributes() -> CameraAttributes:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_h_offset(value: float) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a h_offset value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.h_offset = value
 	if _is_active: get_pcam_host_owner().camera_3d.h_offset = value
 
 ## Gets the [member Camera3D.h_offset] value assigned to the [param Camera3DResource].
-func get_h_offset() -> float:
+func get_h_offset() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.h_offset
 
 
@@ -1916,11 +1937,15 @@ func get_h_offset() -> float:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_v_offset(value: float) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a v_offset value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.v_offset = value
 	if _is_active: get_pcam_host_owner().camera_3d.v_offset = value
 
 ## Gets the [member Camera3D.v_offset] value assigned to the [param Camera3DResource].
-func get_v_offset() -> float:
+func get_v_offset() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.v_offset
 
 
@@ -1928,11 +1953,15 @@ func get_v_offset() -> float:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_projection(value: int) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a projection value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.projection = value
 	if _is_active: get_pcam_host_owner().camera_3d.projection = value
 
 ## Gets the [member Camera3D.projection] value assigned to the [param Camera3DResource].
-func get_projection() -> int:
+func get_projection() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.projection
 
 
@@ -1940,11 +1969,15 @@ func get_projection() -> int:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_fov(value: float) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a fov value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.fov = value
 	if _is_active: get_pcam_host_owner().camera_3d.fov = value
 
 ## Gets the [member Camera3D.fov] value assigned to the [param Camera3DResource].
-func get_fov() -> float:
+func get_fov() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.fov
 
 
@@ -1952,11 +1985,15 @@ func get_fov() -> float:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_size(value: float) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a size value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.size = value
 	if _is_active: get_pcam_host_owner().camera_3d.size = value
 
 ## Gets the [member Camera3D.size] value assigned to the [param Camera3DResource].
-func get_size() -> float:
+func get_size() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.size
 
 
@@ -1964,11 +2001,15 @@ func get_size() -> float:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_frustum_offset(value: Vector2) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a frustum_offset value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.frustum_offset = value
 	if _is_active: get_pcam_host_owner().camera_3d.frustum_offset = value
 
 ## Gets the [member Camera3D.frustum_offset] value assigned to the [param Camera3DResource].
-func get_frustum_offset() -> Vector2:
+func get_frustum_offset() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.frustum_offset
 
 
@@ -1976,11 +2017,15 @@ func get_frustum_offset() -> Vector2:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_near(value: float) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a near value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.near = value
 	if _is_active: get_pcam_host_owner().camera_3d.near = value
 
 ## Gets the [member Camera3D.near] value assigned to the [param Camera3DResource].
-func get_near() -> float:
+func get_near() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.near
 
 
@@ -1988,11 +2033,15 @@ func get_near() -> float:
 ## [b]Note:[/b] This will override and make the [param Camera3DResource] unique to
 ## this [param PhantomCamera3D].
 func set_far(value: float) -> void:
+	if not camera_3d_resource:
+		printerr("Can't set a far value. No Camera3DResource assigned to ", name)
+		return
 	camera_3d_resource.far = value
 	if _is_active: get_pcam_host_owner().camera_3d.far = value
 
 ## Gets the [member Camera3D.far] value assigned to the [param Camera3DResource].
-func get_far() -> float:
+func get_far() -> Variant:
+	if not camera_3d_resource: return null
 	return camera_3d_resource.far
 
 
