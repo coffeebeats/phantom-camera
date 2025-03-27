@@ -9,8 +9,8 @@ const PCAM_3D: String = "PhantomCamera3D"
 const PCAM_NOISE_EMITTER_2D: String = "PhantomCameraNoiseEmitter2D"
 const PCAM_NOISE_EMITTER_3D: String = "PhantomCameraNoiseEmitter3D"
 
-const PCam3DPlugin: Script = preload("res://addons/phantom_camera/gizmos/phantom_camera_gizmo_plugin_3d.gd")
-const PCam3DNoiseEmitterPlugin: Script = preload("res://addons/phantom_camera/gizmos/phantom_camera_noise_emitter_gizmo_plugin_3d.gd")
+const PCam3DPlugin: Script = preload("res://addons/phantom_camera/scripts/gizmos/phantom_camera_gizmo_plugin_3d.gd")
+const PCam3DNoiseEmitterPlugin: Script = preload("res://addons/phantom_camera/scripts/gizmos/phantom_camera_noise_emitter_gizmo_plugin_3d.gd")
 const EditorPanel: PackedScene = preload("res://addons/phantom_camera/panel/editor.tscn")
 const updater_constants: Script = preload("res://addons/phantom_camera/scripts/panel/updater/updater_constants.gd")
 const PHANTOM_CAMERA_MANAGER: StringName = "PhantomCameraManager"
@@ -69,10 +69,10 @@ func _enter_tree() -> void:
 	var setting_updater_mode: String
 	var setting_updater_mode_default: int
 	if FileAccess.file_exists("res://dev_scenes/3d/dev_scene_3d.tscn"): # For forks
-		setting_updater_mode = "Disabled, Console Output"
+		setting_updater_mode = "Off, Console Output"
 		setting_updater_mode_default = 1
 	else: # For end-users
-		setting_updater_mode = "Disabled, Console Output, Updater Window"
+		setting_updater_mode = "Off, Console Output, Updater Window"
 		setting_updater_mode_default = 2
 
 	if not ProjectSettings.has_setting(updater_constants.setting_updater_mode):
@@ -157,7 +157,7 @@ func _make_visible(visible):
 	if editor_panel_instance:
 		editor_panel_instance.set_visible(visible)
 
-
+## TODO - Signal can be added directly to the editor_panel with the changes in Godot 4.5 (https://github.com/godotengine/godot/pull/102986)
 func _scene_changed(scene_root: Node) -> void:
 	editor_panel_instance.viewfinder.scene_changed(scene_root)
 
