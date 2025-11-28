@@ -21,7 +21,7 @@ signal pcam_removed_from_scene(pcam: Node)
 signal pcam_priority_changed(pcam: Node)
 signal pcam_visibility_changed(pcam: Node)
 
-signal pcam_teleport
+signal pcam_teleport(pcam: Node)
 
 # Limit (2D)
 signal limit_2d_changed(side: int, limit: int)
@@ -59,7 +59,6 @@ var phantom_camera_2ds: Array[PhantomCamera2D]:
 var phantom_camera_3ds: Array[Node]: ## Note: To support disable_3d export templates for 2D projects, this is purposely not strongly typed.
 	get:
 		return _phantom_camera_3d_list
-
 
 var screen_size: Vector2i
 
