@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Godot;
+using Environment = Godot.Environment;
 using Godot.Collections;
 using PhantomCamera.Noise;
 
@@ -266,7 +267,7 @@ public class PhantomCamera3D : PhantomCamera
         get => (int)Node3D.Call(MethodName.GetKeepAspect);
         set => Node3D.Call(MethodName.SetKeepAspect, value);
     }
-    
+
     public int CullMask
     {
         get => (int)Node3D.Call(MethodName.GetCullMask);
@@ -340,9 +341,6 @@ public class PhantomCamera3D : PhantomCamera
     }
 
     public void EmitNoise(Transform3D transform) => Node3D.Call(PhantomCamera.MethodName.EmitNoise, transform);
-
-    public static PhantomCamera3D FromScript(string path) => new(GD.Load<GDScript>(path).New().AsGodotObject());
-    public static PhantomCamera3D FromScript(GDScript script) => new(script.New().AsGodotObject());
 
     public PhantomCamera3D(GodotObject phantomCamera3DNode) : base(phantomCamera3DNode)
     {
