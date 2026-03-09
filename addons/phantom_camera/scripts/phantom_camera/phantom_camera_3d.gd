@@ -167,7 +167,7 @@ enum FollowTargetPhysicsClass {
 @export var follow_mode: FollowMode = FollowMode.NONE:
 	set(value):
 		follow_mode = value
-		_lookahead_follow_reset = true
+		follow_mode_changed.emit()
 
 		if follow_mode == FollowMode.NONE:
 			_should_follow = false
@@ -212,7 +212,6 @@ enum FollowTargetPhysicsClass {
 			top_level = true
 			_is_third_person_follow = false
 
-		follow_mode_changed.emit()
 		notify_property_list_changed()
 
 		## NOTE - Warning that Look At + Follow Mode hasn't been fully tested together yet
@@ -1398,11 +1397,14 @@ func _interpolate_position(delta: float) -> void:
 		_camera_target.global_position = _follow_target_output_position
 		_transform_output.origin = global_position
 
-	if _is_third_person_follow:
+	if _is_third_person_follow and Engine.is_editor_hint():
 		var target_quat: Quaternion = _look_at_target_quat(_get_target_position_offset(), follow_target.global_basis.y)
 		var target_basis: Basis = Basis(target_quat)
 		_transform_output.basis = target_basis
 		global_basis = target_basis
+	elif _has_follow_spring_arm:
+		_transform_output.basis = _follow_spring_arm.global_basis
+		global_basis = _follow_spring_arm.global_basis
 
 
 func _look_at_target_quat(target_position: Vector3, up_direction: Vector3 = Vector3.UP) -> Quaternion:
@@ -1833,17 +1835,7 @@ func _check_physics_body(target: Node3D) -> void:
 		var show_jitter_tips := ProjectSettings.get_setting("phantom_camera/tips/show_jitter_tips")
 		var physics_interpolation_enabled := ProjectSettings.get_setting("physics/common/physics_interpolation")
 
-		## NOTE - Feature Toggle
-		if Engine.get_version_info().major == 4 and \
-		Engine.get_version_info().minor < 4:
-			if show_jitter_tips == null: # Default value is null when referencing custom Project Setting
-				print_rich("Following or Looking at a [b]PhysicsBody3D[/b] node will likely result in jitter - on lower physics ticks in particular.")
-				print_rich("If possible, will recommend upgrading to Godot 4.4, as it has built-in support for 3D Physics Interpolation, which will mitigate this issue.")
-				print_rich("Until then, try following the guide on the [url=https://phantom-camera.dev/support/faq#i-m-seeing-jitter-what-can-i-do]documentation site[/url] for better results.")
-				print_rich("This tip can be disabled from within [code]Project Settings / Phantom Camera / Tips / Show Jitter Tips[/code]")
-			return
-		## NOTE - Only supported in Godot 4.4 or above
-		elif not physics_interpolation_enabled and show_jitter_tips == null: # Default value is null when referencing custom Project Setting
+		if not physics_interpolation_enabled and _follow_target_physics_based and show_jitter_tips == null:
 			printerr("Physics Interpolation is disabled in the Project Settings, recommend enabling it to smooth out physics-based camera movement")
 			print_rich("This tip can be disabled from within [code]Project Settings / Phantom Camera / Tips / Show Jitter Tips[/code]")
 		_follow_target_physics_based = true
@@ -1994,26 +1986,40 @@ func get_tween_resource() -> PhantomCameraTween:
 ## The duration value is in seconds.
 func set_tween_duration(value: float) -> void:
 	tween_resource.duration = value
+
 ## Gets the current [param Tween] Duration value. The duration value is in
 ## [param seconds].
 func get_tween_duration() -> float:
-	return tween_resource.duration
+	if tween_resource:
+		return tween_resource.duration
+	else:
+		return 0.0 # Makes tween instant
+
 
 ## Assigns a new [param Tween Transition] to the [member tween_resource] value.[br]
 ## The duration value is in seconds.
 func set_tween_transition(value: int) -> void:
 	tween_resource.transition = value
+
 ## Gets the current [param Tween Transition] value.
 func get_tween_transition() -> int:
-	return tween_resource.transition
+	if tween_resource:
+		return tween_resource.transition
+	else:
+		return 0 # Equals TransitionType.LINEAR
+
 
 ## Assigns a new [param Tween Ease] to the [member tween_resource] value.[br]
 ## The duration value is in seconds.
 func set_tween_ease(value: int) -> void:
 	tween_resource.ease = value
+
 ## Gets the current [param Tween Ease] value.
 func get_tween_ease() -> int:
-	return tween_resource.ease
+	if tween_resource:
+		return tween_resource.ease
+	else:
+		return 2 # Equals EaseType.EASE_IN_OUT
 
 ## Sets the [param PhantomCamera3D] active state[br]
 ## [b][color=yellow]Important:[/color][/b] This value can only be changed
